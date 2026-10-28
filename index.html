@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Resume Match</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: two input panes side by side, then a results board that leads with the score and the gaps. */
+:root {
+  --bg: #f2f4f7;
+  --surface: #ffffff;
+  --fg: #0f1b2d;
+  --muted: #55627a;
+  --line: #d5dbe5;
+  --accent: #1d4ed8;
+  --accent-ink: #ffffff;
+  --tag-bg: #e4e9f2;
+  --ok: #0f7a4a;
+  --ok-bg: #dcf3e7;
+  --warn: #9a5b00;
+  --warn-bg: #fbeacc;
+  --bad: #b42323;
+  --bad-bg: #fbe0e0;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Hanken Grotesk", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0c1422; --surface: #131d30; --fg: #e8edf6; --muted: #98a5bd; --line: #26324a;
+    --accent: #7aa2ff; --accent-ink: #0c1422; --tag-bg: #1b2740;
+    --ok: #4fd18f; --ok-bg: #12332a; --warn: #f0b95a; --warn-bg: #3a2c12; --bad: #ff8a8a; --bad-bg: #3d1b1f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0c1422; --surface: #131d30; --fg: #e8edf6; --muted: #98a5bd; --line: #26324a;
+  --accent: #7aa2ff; --accent-ink: #0c1422; --tag-bg: #1b2740;
+  --ok: #4fd18f; --ok-bg: #12332a; --warn: #f0b95a; --warn-bg: #3a2c12; --bad: #ff8a8a; --bad-bg: #3d1b1f;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 16px; line-height: 1.55;
+  padding-block: 36px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1040px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
+.eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+h1 { font-family: var(--font-display); font-weight: 700; font-size: 2.8rem; line-height: 1.02; letter-spacing: -0.02em; margin: 6px 0 10px; text-wrap: balance; }
+.lede { color: var(--muted); margin: 0; max-width: 60ch; }
+.inputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.pane { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.pane label { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+textarea {
+  width: 100%; min-height: 280px; resize: vertical; padding: 14px; border-radius: 6px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+}
+textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+button {
+  font-family: var(--font-mono); font-size: 13px; padding: 10px 16px; border-radius: 4px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--surface); color: var(--fg);
+}
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 500; }
+button:hover { border-color: var(--accent); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.flag { font-size: 13px; color: var(--muted); }
+.privacy { font-size: 13px; color: var(--muted); margin-left: auto; }
+#results { display: flex; flex-direction: column; gap: 24px; }
+.empty { padding: 28px; border: 1px dashed var(--line); border-radius: 6px; color: var(--muted); }
+.summary { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 28px; align-items: center; padding: 24px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.score { font-family: var(--font-display); font-weight: 700; font-size: 4.5rem; line-height: 1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.score small { font-size: 1.6rem; color: var(--muted); font-weight: 600; }
+.verdict { font-family: var(--font-display); font-weight: 600; font-size: 1.4rem; margin: 0 0 4px; }
+.bar { height: 10px; border-radius: 5px; background: var(--tag-bg); overflow: hidden; margin: 12px 0 8px; }
+.bar > div { height: 100%; border-radius: 5px; }
+.meta { font-size: 14px; color: var(--muted); margin: 0; }
+.cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+section h2 { font-family: var(--font-mono); font-weight: 500; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+section h2 .count { font-variant-numeric: tabular-nums; color: var(--fg); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 0; margin: 0; list-style: none; }
+.chip { display: inline-flex; align-items: baseline; gap: 6px; font-size: 14px; padding: 5px 10px; border-radius: 4px; border: 1px solid transparent; }
+.chip em { font-style: normal; font-family: var(--font-mono); font-size: 11px; opacity: 0.8; }
+.chip.ok { background: var(--ok-bg); color: var(--ok); }
+.chip.bad { background: var(--bad-bg); color: var(--bad); }
+.chip.warn { background: var(--warn-bg); color: var(--warn); }
+.chip.plain { background: var(--tag-bg); color: var(--fg); }
+.none { color: var(--muted); font-size: 14px; margin: 0; }
+.edits { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.edits li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; padding: 16px 0; border-bottom: 1px solid var(--line); }
+.edits .n { font-family: var(--font-mono); font-size: 12px; color: var(--muted); padding-top: 3px; }
+.edits strong { font-weight: 600; }
+.edits .ex { display: block; margin-top: 4px; color: var(--muted); font-size: 14px; }
+@media (max-width: 760px) {
+  .inputs, .cols { grid-template-columns: minmax(0, 1fr); }
+  .summary { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  h1 { font-size: 2.3rem; }
+  .privacy { margin-left: 0; width: 100%; }
+  textarea { min-height: 200px; }
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Resume Match</div>
+    <h1>See how your resume stacks up against a job posting</h1>
+    <p class="lede">Paste a job description and your resume. You get a match score, the skills the posting wants that your resume never mentions, and specific edits to make.</p>
+  </header>
+
+  <div class="inputs">
+    <div class="pane">
+      <label for="jd">Job description</label>
+      <textarea id="jd" spellcheck="false" placeholder="Paste the full job posting here"></textarea>
+    </div>
+    <div class="pane">
+      <label for="resume">Your resume</label>
+      <textarea id="resume" spellcheck="false" placeholder="Paste your resume text here"></textarea>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="primary" id="analyze" type="button">Check match</button>
+    <button id="sample" type="button">Load example</button>
+    <button id="clear" type="button">Clear</button>
+    <span class="flag" id="flag"></span>
+    <span class="privacy">Everything runs in your browser. Nothing is uploaded.</span>
+  </div>
+
+  <div id="results" aria-live="polite"></div>
+</div>
+
+<script>
+(function () {
+  var SKILLS = [
+    ["Python", ["python"], "Language"], ["Java", ["java"], "Language"], ["JavaScript", ["javascript", "ecmascript"], "Language"],
+    ["TypeScript", ["typescript"], "Language"], ["C++", ["c++"], "Language"], ["C#", ["c#"], "Language"],
+    ["Go", ["golang"], "Language"], ["Rust", ["rust"], "Language"], ["Kotlin", ["kotlin"], "Language"],
+    ["PHP", ["php"], "Language"], ["SQL", ["sql"], "Language"], ["HTML", ["html", "html5"], "Language"], ["CSS", ["css", "css3"], "Language"],
+    ["Bash", ["bash", "shell scripting"], "Language"],
+    ["React", ["react", "react.js", "reactjs"], "Frontend"], ["Angular", ["angular"], "Frontend"], ["Vue", ["vue", "vue.js"], "Frontend"],
+    ["Next.js", ["next.js", "nextjs"], "Frontend"], ["Tailwind CSS", ["tailwind", "tailwind css"], "Frontend"], ["Redux", ["redux"], "Frontend"],
+    ["Responsive design", ["responsive design", "responsive layouts"], "Frontend"],
+    ["Node.js", ["node.js", "nodejs", "node"], "Backend"], ["Express", ["express", "express.js"], "Backend"], ["FastAPI", ["fastapi"], "Backend"],
+    ["Flask", ["flask"], "Backend"], ["Django", ["django"], "Backend"], ["Spring Boot", ["spring boot", "spring"], "Backend"],
+    ["REST APIs", ["rest api", "rest apis", "restful", "restful api", "restful apis"], "Backend"], ["GraphQL", ["graphql"], "Backend"],
+    ["Microservices", ["microservice", "microservices"], "Backend"], ["Authentication", ["authentication", "oauth", "jwt"], "Backend"],
+    ["PostgreSQL", ["postgresql", "postgres"], "Database"], ["MySQL", ["mysql"], "Database"], ["MongoDB", ["mongodb"], "Database"],
+    ["SQLite", ["sqlite"], "Database"], ["Redis", ["redis"], "Database"], ["NoSQL", ["nosql"], "Database"],
+    ["AWS", ["aws", "amazon web services"], "Cloud and DevOps"], ["Azure", ["azure"], "Cloud and DevOps"], ["Google Cloud", ["gcp", "google cloud"], "Cloud and DevOps"],
+    ["Docker", ["docker"], "Cloud and DevOps"], ["Kubernetes", ["kubernetes", "k8s"], "Cloud and DevOps"],
+    ["CI/CD", ["ci/cd", "cicd", "continuous integration"], "Cloud and DevOps"], ["Git", ["git", "github", "gitlab"], "Cloud and DevOps"],
+    ["Linux", ["linux"], "Cloud and DevOps"], ["Terraform", ["terraform"], "Cloud and DevOps"],
+    ["Machine learning", ["machine learning"], "Data and AI"], ["Deep learning", ["deep learning"], "Data and AI"],
+    ["NLP", ["nlp", "natural language processing"], "Data and AI"], ["TensorFlow", ["tensorflow"], "Data and AI"], ["PyTorch", ["pytorch"], "Data and AI"],
+    ["scikit-learn", ["scikit-learn", "sklearn"], "Data and AI"], ["Pandas", ["pandas"], "Data and AI"], ["NumPy", ["numpy"], "Data and AI"],
+    ["Data analysis", ["data analysis", "data analytics"], "Data and AI"], ["Power BI", ["power bi", "powerbi"], "Data and AI"],
+    ["Tableau", ["tableau"], "Data and AI"], ["LLMs", ["llm", "llms", "large language models"], "Data and AI"],
+    ["Prompt engineering", ["prompt engineering"], "Data and AI"],
+    ["Unit testing", ["unit testing", "unit tests", "test automation", "pytest", "jest"], "Practices"], ["Agile", ["agile"], "Practices"],
+    ["Scrum", ["scrum"], "Practices"], ["Code review", ["code review", "code reviews"], "Practices"], ["Debugging", ["debugging"], "Practices"],
+    ["System design", ["system design"], "Practices"], ["Data structures", ["data structures", "algorithms"], "Practices"],
+    ["OOP", ["oop", "object-oriented", "object oriented"], "Practices"],
+    ["Communication", ["communication", "communicate"], "Soft skills"], ["Teamwork", ["teamwork", "collaboration", "collaborate", "cross-functional"], "Soft skills"],
+    ["Problem solving", ["problem solving", "problem-solving"], "Soft skills"], ["Leadership", ["leadership"], "Soft skills"]
+  ];
+
+  var STOP = "about above across after also always among another because become been before being between both build building business candidate company could development different during each either environment especially every excellent experience familiar following from further good great have having help ideal include including into join knowledge like looking make many more most must need other our over part people position preferred required requirements responsibilities role should skills some strong such team teams than that their them then there these they this those through together under until using want well what when where which while will with within without work working would write year years your".split(" ");
+  var STOPSET = {}; STOP.forEach(function (w) { STOPSET[w] = 1; });
+
+  function esc(s) { return s.replace(/[.*+?^${}()|[\]\\\/]/g, "\\$&"); }
+  var compiled = SKILLS.map(function (s) {
+    var alt = s[1].map(esc).join("|");
+    return { name: s[0], cat: s[2], re: new RegExp("(?<![a-z0-9])(?:" + alt + ")(?![a-z0-9])", "gi") };
+  });
+
+  function count(text, re) { var m = text.match(re); return m ? m.length : 0; }
+
+  var REQ = /\b(required|requirements?|must|minimum|essential|proficien\w*|experience (?:with|in)|hands-on|strong)\b/i;
+  var PREF = /\b(preferred|nice to have|bonus|a plus|plus|desirable|good to have)\b/i;
+
+  function analyzeJD(jd) {
+    var lines = jd.split(/\n|(?<=[.;])\s+/);
+    var out = [];
+    compiled.forEach(function (c) {
+      var total = count(jd, c.re);
+      if (!total) return;
+      var req = false, pref = false, other = false;
+      lines.forEach(function (ln) {
+        if (!count(ln, c.re)) return;
+        if (PREF.test(ln)) pref = true;
+        else if (REQ.test(ln)) req = true;
+        else other = true;
+      });
+      var core = (req || total >= 2 || other) && !(pref && !req && total < 2 && !other);
+      out.push({ name: c.name, cat: c.cat, re: c.re, jdCount: total, core: core });
+    });
+    return out;
+  }
+
+  function tokens(text) {
+    return (text.toLowerCase().match(/[a-z][a-z+#.\-]{3,}/g) || []).map(function (t) { return t.replace(/[.\-]+$/, ""); });
+  }
+
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+  function chip(item, cls, note) {
+    var li = el("li");
+    var c = el("span", "chip " + cls, item);
+    if (note) c.appendChild(el("em", "", note));
+    li.appendChild(c);
+    return li;
+  }
+
+  var EXAMPLES = {
+    Language: "Wrote ___ in {s} to ___, which ___.",
+    Frontend: "Built the ___ screen in {s}, reducing ___ by ___.",
+    Backend: "Designed ___ endpoints with {s} that handle ___ requests.",
+    Database: "Modelled ___ data in {s} and sped up ___ queries by ___%.",
+    "Cloud and DevOps": "Set up {s} for ___, which cut deploy time from ___ to ___.",
+    "Data and AI": "Used {s} to ___, reaching ___ accuracy on ___ records.",
+    Practices: "Applied {s} on ___, catching ___ issues before release.",
+    "Soft skills": "Worked with ___ teammates on ___ using {s}, delivering ___."
+  };
+
+  var lastMissing = [];
+
+  function run() {
+    var jd = document.getElementById("jd").value.trim();
+    var resume = document.getElementById("resume").value.trim();
+    var box = document.getElementById("results");
+    box.textContent = "";
+    lastMissing = [];
+    if (!jd || !resume) {
+      box.appendChild(el("div", "empty", "Paste both a job description and your resume, then choose Check match."));
+      return;
+    }
+    var found = analyzeJD(jd);
+    if (!found.length) {
+      box.appendChild(el("div", "empty", "No known skills were found in this job description. Paste the full posting, including the requirements section."));
+      return;
+    }
+    var matched = [], missing = [], weak = [];
+    var totalW = 0, gotW = 0;
+    found.forEach(function (f) {
+      var w = f.core ? 3 : 1;
+      totalW += w;
+      f.inResume = count(resume, f.re);
+      if (f.inResume) { gotW += w; matched.push(f); if (f.inResume === 1 && f.jdCount >= 2) weak.push(f); }
+      else missing.push(f);
+    });
+    var score = Math.round((gotW / totalW) * 100);
+    var tone = score >= 75 ? "ok" : score >= 50 ? "warn" : "bad";
+    var verdict = score >= 75 ? "Strong match" : score >= 50 ? "Partial match" : "Weak match";
+    var missingCore = missing.filter(function (m) { return m.core; });
+    lastMissing = missing.map(function (m) { return m.name; });
+
+    // Summary
+    var sum = el("div", "summary");
+    var sc = el("div", "score", String(score)); sc.appendChild(el("small", "", "%"));
+    sum.appendChild(sc);
+    var side = el("div");
+    side.appendChild(el("p", "verdict", verdict));
+    var bar = el("div", "bar"); var fill = el("div"); fill.style.width = score + "%"; fill.style.background = "var(--" + tone + ")";
+    bar.appendChild(fill); side.appendChild(bar);
+    side.appendChild(el("p", "meta", "Your resume covers " + matched.length + " of the " + found.length + " skills in this posting. " + missingCore.length + " of the missing ones look essential."));
+    sum.appendChild(side);
+    box.appendChild(sum);
+
+    // Matched / missing
+    var cols = el("div", "cols");
+    var s1 = el("section"); var h1 = el("h2", "", "On your resume "); h1.appendChild(el("span", "count", String(matched.length)));
+    s1.appendChild(h1);
+    if (matched.length) {
+      var l1 = el("ul", "chips");
+      matched.forEach(function (m) { l1.appendChild(chip(m.name, "ok", m.core ? "core" : "")); });
+      s1.appendChild(l1);
+    } else s1.appendChild(el("p", "none", "No overlap found yet."));
+    var s2 = el("section"); var h2 = el("h2", "", "Missing from your resume "); h2.appendChild(el("span", "count", String(missing.length)));
+    s2.appendChild(h2);
+    if (missing.length) {
+      var l2 = el("ul", "chips");
+      missing.forEach(function (m) { l2.appendChild(chip(m.name, m.core ? "bad" : "warn", m.core ? "core" : "nice to have")); });
+      s2.appendChild(l2);
+      var cp = el("button", "", "Copy missing skills"); cp.type = "button"; cp.id = "copy"; cp.style.marginTop = "14px";
+      cp.addEventListener("click", copyMissing);
+      s2.appendChild(cp);
+    } else s2.appendChild(el("p", "none", "Nothing missing. Every skill in the posting appears on your resume."));
+    cols.appendChild(s1); cols.appendChild(s2);
+    box.appendChild(cols);
+
+    // Edits
+    var edits = [];
+    missingCore.slice(0, 5).forEach(function (m) {
+      var ex = (EXAMPLES[m.cat] || EXAMPLES.Practices).replace("{s}", m.name);
+      edits.push([ "Add " + m.name + " to your skills section and back it with a project bullet, if you have used it.", "Example: " + ex ]);
+    });
+    weak.slice(0, 3).forEach(function (m) {
+      edits.push([ "Mention " + m.name + " in more than one place. The posting brings it up " + m.jdCount + " times and your resume only once.", "Put it in a project or experience bullet, not only in the skills list." ]);
+    });
+    if (!/\d/.test(resume)) {
+      edits.push([ "Add numbers to your bullets.", "Example: \"Cut page load time by 40%\" or \"Served 200 users\" reads stronger than a description with no figures." ]);
+    }
+    if (!/projects?/i.test(resume)) edits.push([ "Add a Projects section.", "Name each project, the tools used and one result." ]);
+    if (!/skills?/i.test(resume)) edits.push([ "Add a Skills section so keyword scanners can find your tools quickly.", "" ]);
+    if (resume.split(/\s+/).length < 120) edits.push([ "Your resume is short.", "Add detail to your projects: what you built, with which tools, and what it achieved." ]);
+    if (!edits.length) edits.push([ "Your resume already covers this posting well.", "Tailor your summary line to the job title and keep your strongest matching project near the top." ]);
+
+    var s3 = el("section"); s3.appendChild(el("h2", "", "Suggested edits"));
+    var ol = el("ol", "edits");
+    edits.forEach(function (e, i) {
+      var li = el("li");
+      li.appendChild(el("span", "n", String(i + 1).padStart(2, "0")));
+      var d = el("div"); d.appendChild(el("strong", "", e[0]));
+      if (e[1]) d.appendChild(el("span", "ex", e[1]));
+      li.appendChild(d); ol.appendChild(li);
+    });
+    s3.appendChild(ol); box.appendChild(s3);
+
+    // Other keywords
+    var resumeTok = {}; tokens(resume).forEach(function (t) { resumeTok[t] = 1; });
+    var known = {}; SKILLS.forEach(function (s) { s[1].forEach(function (a) { known[a] = 1; }); });
+    var freq = {};
+    tokens(jd).forEach(function (t) { if (!STOPSET[t] && t.length >= 5 && !known[t]) freq[t] = (freq[t] || 0) + 1; });
+    var extra = Object.keys(freq).filter(function (t) { return freq[t] >= 2 && !resumeTok[t]; })
+      .sort(function (a, b) { return freq[b] - freq[a]; }).slice(0, 8);
+    if (extra.length) {
+      var s4 = el("section"); s4.appendChild(el("h2", "", "Other words the posting repeats"));
+      var l4 = el("ul", "chips");
+      extra.forEach(function (t) { l4.appendChild(chip(t, "plain", freq[t] + "x")); });
+      s4.appendChild(l4); box.appendChild(s4);
+    }
+  }
+
+  function copyMissing() {
+    var text = lastMissing.join(", ");
+    var flag = document.getElementById("flag");
+    function done(msg) { flag.textContent = msg; setTimeout(function () { flag.textContent = ""; }, 2500); }
+    try {
+      navigator.clipboard.writeText(text).then(function () { done("Copied."); }, function () { done("Copy is blocked here. Select the skills above instead."); });
+    } catch (e) { done("Copy is blocked here. Select the skills above instead."); }
+  }
+
+  var SAMPLE_JD = "Junior Full Stack Developer\n\nWe are a small product team building tools for campus clubs. You will work across our web app and API.\n\nRequirements:\n- Proficiency in Python and building REST APIs with FastAPI or Flask\n- Experience with React and TypeScript\n- Must have worked with a relational database such as PostgreSQL\n- Hands-on experience with Git and code review\n- Familiarity with Docker and CI/CD pipelines\n- Strong communication and teamwork\n\nPreferred:\n- AWS or another cloud platform\n- Unit testing with pytest or Jest\n- Experience with authentication (JWT)\n\nYou will build features, write unit tests, review code from teammates and deploy through our CI/CD pipeline. Good problem solving and clear communication are essential.";
+  var SAMPLE_RESUME = "Sample Candidate (example text, replace with your own)\n\nSummary\nComputer science student who enjoys building web apps end to end.\n\nSkills\nPython, FastAPI, Flask, React, JavaScript, SQLite, HTML, CSS, Git, GitHub\n\nProjects\nCode Review Assistant: built a FastAPI backend with an AI review endpoint and a React frontend. Worked with a team of 3 using GitHub.\nLost and Found Platform: built a Flask and SQLite app that matches lost items to found items by their attributes.\n\nEducation\nB.Tech in Computer Science, 3rd year.";
+
+  function load(example) {
+    document.getElementById("jd").value = example ? SAMPLE_JD : "";
+    document.getElementById("resume").value = example ? SAMPLE_RESUME : "";
+    var f = document.getElementById("flag");
+    f.textContent = example ? "Example text loaded. Replace it with your own." : "";
+    run();
+  }
+
+  document.getElementById("analyze").addEventListener("click", function () { document.getElementById("flag").textContent = ""; run(); });
+  document.getElementById("sample").addEventListener("click", function () { load(true); });
+  document.getElementById("clear").addEventListener("click", function () { load(false); });
+  load(true);
+})();
+</script>
+</body>
+</html>
